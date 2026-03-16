@@ -1,56 +1,30 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 
-st.title("Locally Weighted Regression (Non-Parametric)")
+data = pd.read_csv("Advertising.csv")
 
-# Upload dataset
-uploaded_file = st.file_uploader("Upload CSV dataset", type=["csv"])
+X = data['TV'].values
+y = data['Sales'].values
 
-if uploaded_file is not None:
+def lwr(x_query, X, y, tau=50):
+    m = len(X)
 
-    data = pd.read_csv(uploaded_file)
+    weights = np.exp(-(X - x_query)**2 / (2 * tau**2))
 
-    st.write("Dataset Preview")
-    st.write(data.head())
+    X_design = np.vstack([np.ones(m), X]).T
+    W = np.diag(weights)
 
-    X = data.iloc[:,0].values
-    y = data.iloc[:,1].values
+    theta = np.linalg.pinv(X_design.T @ W @ X_design) @ (X_design.T @ W @ y)
 
-    tau = st.slider("Select Bandwidth (tau)", 0.1, 5.0, 0.5)
+    return theta[0] + theta[1] * x_query
 
-    # LWR Function
-    def locally_weighted_regression(x0, X, y, tau):
-        
-        weights = np.exp(-(X - x0)**2 / (2 * tau**2))
-        
-        W = np.diag(weights)
-        
-        X_b = np.c_[np.ones(len(X)), X]
-        
-        theta = np.linalg.pinv(X_b.T @ W @ X_b) @ X_b.T @ W @ y
-        
-        x0_b = np.array([1, x0])
-        
-        return x0_b @ theta
+st.title("Sales Prediction")
 
-    # Prediction points
-    X_test = np.linspace(min(X), max(X), 100)
+st.write("Enter TV advertising budget")
 
-    y_pred = []
+tv_budget = st.number_input("TV Budget")
 
-    for x in X_test:
-        y_pred.append(locally_weighted_regression(x, X, y, tau))
-
-    # Plot graph
-    fig, ax = plt.subplots()
-
-    ax.scatter(X, y, label="Data Points")
-    ax.plot(X_test, y_pred, label="LWR Curve")
-
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.legend()
-
-    st.pyplot(fig)
+if st.button("Predict"):
+    prediction = lwr(tv_budget, X, y)
+    st.success(f"Predicted Sales: {prediction:.2f}")
